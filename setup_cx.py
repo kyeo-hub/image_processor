@@ -7,7 +7,6 @@ app_name = "ImageProcessor"
 app_description = "一个批量重命名和压缩图片的工具"
 
 # 根据平台设置不同的基础配置
-base = None
 if sys.platform == "win32":
     base_cli = None  # Windows控制台应用程序
     base_gui = "Win32GUI"  # Windows GUI应用程序（无控制台窗口）
@@ -21,13 +20,30 @@ else:  # Linux和其他Unix系统
     base_gui = None
     extension = ""
 
+# 获取当前Python版本信息
+python_version = f"{sys.version_info.major}{sys.version_info.minor}"
+
 # 构建选项
 build_exe_options = {
     "packages": ["tkinter", "PIL", "os", "re", "argparse", "datetime"],
     "excludes": ["tkinter.test", "unittest"],
     "include_files": [],
-    "optimize": 1
+    "optimize": 1,
+    "zip_include_packages": ["*"],
+    "silent": False,
 }
+
+# 对于Windows平台，添加特定选项以包含必要的DLL文件
+if sys.platform == "win32":
+    build_exe_options["include_msvc_redist"] = True
+    
+    # 显式包含Python DLL
+    python_dir = os.path.dirname(sys.executable)
+    python_dll = f"python{python_version}.dll"
+    python_dll_path = os.path.join(python_dir, python_dll)
+    
+    if os.path.exists(python_dll_path):
+        build_exe_options["include_files"] = [(python_dll_path, python_dll)]
 
 # 构建设置
 setup(

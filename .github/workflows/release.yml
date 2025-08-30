@@ -69,17 +69,33 @@ jobs:
           echo "Dist directory contents:"
           Get-ChildItem -Path dist
 
+      - name: Check for required DLLs
+        run: |
+          echo "Checking for required DLLs:"
+          $requiredFiles = @("python38.dll")
+          foreach ($file in $requiredFiles) {
+            if (Test-Path "dist\$file") {
+              echo "Found $file"
+            } else {
+              echo "Missing $file"
+            }
+          }
+
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-cli
-          path: dist/image_processor.exe
+          path: |
+            dist/image_processor.exe
+            dist/python38.dll
 
       - name: Upload GUI artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-gui
-          path: dist/image_processor_gui.exe
+          path: |
+            dist/image_processor_gui.exe
+            dist/python38.dll
 
   build-macos:
     needs: create-release
