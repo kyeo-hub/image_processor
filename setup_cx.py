@@ -27,23 +27,22 @@ python_version = f"{sys.version_info.major}{sys.version_info.minor}"
 build_exe_options = {
     "packages": ["tkinter", "PIL", "os", "re", "argparse", "datetime"],
     "excludes": ["tkinter.test", "unittest"],
-    "include_files": [],
+    "include_files": include_files,
     "optimize": 1,
-    "zip_include_packages": ["*"],
     "silent": False,
 }
 
-# 对于Windows平台，添加特定选项以包含必要的DLL文件
+# 对于Windows平台，查找并包含Python DLL
 if sys.platform == "win32":
-    build_exe_options["include_msvc_redist"] = True
-    
-    # 显式包含Python DLL
     python_dir = os.path.dirname(sys.executable)
     python_dll = f"python{python_version}.dll"
     python_dll_path = os.path.join(python_dir, python_dll)
     
     if os.path.exists(python_dll_path):
-        build_exe_options["include_files"] = [(python_dll_path, python_dll)]
+        include_files.append((python_dll_path, python_dll))
+        print(f"包含Python DLL: {python_dll}")
+    else:
+        print(f"未找到Python DLL: {python_dll_path}")
 
 # 构建设置
 setup(
