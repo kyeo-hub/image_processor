@@ -41,15 +41,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
 
       - name: Build CLI executable
         run: |
-          pyinstaller --onefile image_processor.py
+          python setup_cx.py build
 
       - name: Build GUI executable
         run: |
-          pyinstaller --onefile --windowed image_processor_gui.py
+          python setup_cx.py build
+
+      - name: Prepare artifacts
+        run: |
+          mkdir dist
+          cp -Recurse build/exe.*/* dist/
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
@@ -80,15 +84,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
 
       - name: Build CLI executable
         run: |
-          pyinstaller --onefile image_processor.py
+          python setup_cx.py build
 
       - name: Build GUI executable
         run: |
-          pyinstaller --onefile --windowed image_processor_gui.py
+          python setup_cx.py build
+
+      - name: Prepare artifacts
+        run: |
+          mkdir dist
+          cp -R build/exe.*/* dist/
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
@@ -100,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-gui
-          path: dist/image_processor_gui.app
+          path: dist/image_processor_gui
 
   build-linux:
     needs: create-release
@@ -119,11 +127,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
 
       - name: Build CLI executable
         run: |
-          pyinstaller --onefile image_processor.py
+          python setup_cx.py build
+
+      - name: Prepare artifacts
+        run: |
+          mkdir dist
+          cp -r build/exe.*/* dist/
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
