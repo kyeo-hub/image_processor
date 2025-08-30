@@ -42,18 +42,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build CLI executable
-        run: |
-          python setup_cx.py build
-
-      - name: Build GUI executable
+      - name: Build executables
         run: |
           python setup_cx.py build
 
       - name: Prepare artifacts
         run: |
           mkdir dist
-          cp -Recurse build/exe.*/* dist/
+          Copy-Item -Path "build\exe.*\*" -Destination dist -Recurse
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
@@ -85,18 +81,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build CLI executable
-        run: |
-          python setup_cx.py build
-
-      - name: Build GUI executable
+      - name: Build executables
         run: |
           python setup_cx.py build
 
       - name: Prepare artifacts
         run: |
-          mkdir dist
+          mkdir -p dist
           cp -R build/exe.*/* dist/
+
+      - name: List build output
+        run: |
+          echo "Build directory contents:"
+          ls -la build/
+          echo "Exe directory contents:"
+          ls -la build/exe.*
+          echo "Dist directory contents:"
+          ls -la dist/
+
+      - name: Fix executable permissions
+        run: |
+          chmod +x dist/image_processor || echo "CLI executable not found"
+          chmod +x dist/image_processor_gui || echo "GUI executable not found"
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
@@ -134,8 +140,12 @@ jobs:
 
       - name: Prepare artifacts
         run: |
-          mkdir dist
+          mkdir -p dist
           cp -r build/exe.*/* dist/
+
+      - name: Fix executable permissions
+        run: |
+          chmod +x dist/image_processor || echo "CLI executable not found"
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
@@ -174,10 +184,15 @@ jobs:
         with:
           name: linux-cli
 
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          ls -la
+
       - name: Upload Release Assets
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
           allowUpdates: true
-          artifacts: "./*"
+          artifacts: "*"
           token: ${{ secrets.GITHUB_TOKEN }}
