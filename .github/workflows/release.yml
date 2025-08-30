@@ -42,14 +42,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Debug - List source files
+        run: |
+          echo "Source directory contents:"
+          Get-ChildItem
+
       - name: Build executables
         run: |
           python setup_cx.py build
 
+      - name: Debug - List build directories
+        run: |
+          echo "Build directory contents:"
+          Get-ChildItem -Path build -Recurse
+
       - name: Prepare artifacts
         run: |
           mkdir dist
-          Copy-Item -Path "build\exe.*\*" -Destination dist -Recurse
+          $exeDir = Get-ChildItem -Path "build" -Directory | Where-Object { $_.Name -like "exe.*" }
+          if ($exeDir) {
+            Copy-Item -Path "$($exeDir.FullName)\*" -Destination dist -Recurse
+          }
+
+      - name: Debug - List dist directory
+        run: |
+          echo "Dist directory contents:"
+          Get-ChildItem -Path dist
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
@@ -81,40 +99,90 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Debug - List source files
+        run: |
+          echo "Source directory contents:"
+          ls -la
+
       - name: Build executables
         run: |
           python setup_cx.py build
 
-      - name: Prepare artifacts
-        run: |
-          mkdir -p dist
-          cp -R build/exe.*/* dist/
-
-      - name: List build output
+      - name: Debug - List build output
         run: |
           echo "Build directory contents:"
           ls -la build/
-          echo "Exe directory contents:"
-          ls -la build/exe.*
+          if [ -d "build" ]; then
+            echo "Searching for exe directories:"
+            find build -type d -name "exe.*" -print
+          else
+            echo "Build directory not found"
+          fi
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p dist
+          # 查找并复制可执行文件目录中的所有内容
+          EXE_DIR=$(find build -type d -name "exe.*" 2>/dev/null | head -n 1)
+          if [ -n "$EXE_DIR" ] && [ -d "$EXE_DIR" ]; then
+            echo "Copying from $EXE_DIR"
+            cp -R "$EXE_DIR"/* dist/
+          else
+            echo "No exe directory found"
+            # 尝试直接查找可执行文件
+            find . -name "image_processor" -type f -print
+            find . -name "image_processor_gui" -type f -print
+          fi
+
+      - name: Debug - List dist directory
+        run: |
           echo "Dist directory contents:"
           ls -la dist/
+          echo "File details in dist:"
+          ls -la dist/ | while read line; do
+            if [[ $line == *"."* ]]; then
+              filename=$(echo $line | awk '{print $NF}')
+              if [ -f "dist/$filename" ]; then
+                file "dist/$filename" || echo "Could not determine file type for $filename"
+              fi
+            fi
+          done
 
       - name: Fix executable permissions
         run: |
-          chmod +x dist/image_processor || echo "CLI executable not found"
-          chmod +x dist/image_processor_gui || echo "GUI executable not found"
+          if [ -f "dist/image_processor" ]; then
+            chmod +x dist/image_processor
+            echo "Made image_processor executable"
+          else
+            echo "CLI executable (image_processor) not found in dist"
+            # 列出所有可能的可执行文件
+            echo "All files in dist that might be the CLI executable:"
+            find dist -type f -name "*image*" -print
+          fi
+          
+          if [ -f "dist/image_processor_gui" ]; then
+            chmod +x dist/image_processor_gui
+            echo "Made image_processor_gui executable"
+          else
+            echo "GUI executable (image_processor_gui) not found in dist"
+            # 列出所有可能的可执行文件
+            echo "All files in dist that might be the GUI executable:"
+            find dist -type f -name "*gui*" -print
+          fi
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-cli
-          path: dist/image_processor
+          path: |
+            dist/image_processor
 
       - name: Upload GUI artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-gui
-          path: dist/image_processor_gui
+          path: |
+            dist/image_processor_gui
 
   build-linux:
     needs: create-release
@@ -134,24 +202,53 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build CLI executable
+      - name: Debug - List source files
+        run: |
+          echo "Source directory contents:"
+          ls -la
+
+      - name: Build executables
         run: |
           python setup_cx.py build
+
+      - name: Debug - List build output
+        run: |
+          echo "Build directory contents:"
+          ls -la build/
+          echo "Searching for exe directories:"
+          find build -type d -name "exe.*" -print || echo "No exe directories found"
 
       - name: Prepare artifacts
         run: |
           mkdir -p dist
-          cp -r build/exe.*/* dist/
+          EXE_DIR=$(find build -type d -name "exe.*" 2>/dev/null | head -n 1)
+          if [ -n "$EXE_DIR" ] && [ -d "$EXE_DIR" ]; then
+            echo "Copying from $EXE_DIR"
+            cp -r "$EXE_DIR"/* dist/
+          else
+            echo "No exe directory found"
+          fi
+
+      - name: Debug - List dist directory
+        run: |
+          echo "Dist directory contents:"
+          ls -la dist/
 
       - name: Fix executable permissions
         run: |
-          chmod +x dist/image_processor || echo "CLI executable not found"
+          if [ -f "dist/image_processor" ]; then
+            chmod +x dist/image_processor
+            echo "Made image_processor executable"
+          else
+            echo "CLI executable not found"
+          fi
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-cli
-          path: dist/image_processor
+          path: |
+            dist/image_processor
 
   upload-release-assets:
     needs: [build-windows, build-macos, build-linux]
@@ -159,6 +256,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: List current directory before download
+        run: |
+          echo "Current directory contents before download:"
+          ls -la
+
       - name: Download Windows CLI
         uses: actions/download-artifact@v4
         with:
