@@ -50,79 +50,60 @@ class ImageProcessor:
         return renamed_count
 
     def rename_images_by_date(self):
-        """
-        根据图片的拍摄日期重命名图片
-        """
+        """根据拍摄日期重命名图片"""
         image_files = self.get_image_files()
         renamed_count = 0
 
         for filename in image_files:
             old_path = os.path.join(self.directory, filename)
+            
             try:
-                # 尝试获取拍摄日期
-                date_str = self.get_capture_date(old_path)
-                if date_str:
-                    file_extension = os.path.splitext(filename)[1].lower()
-                    new_filename = f"{date_str}{file_extension}"
-                    new_path = os.path.join(self.directory, new_filename)
-                    
-                    # 检查文件名是否已存在
-                    counter = 1
-                    final_filename = new_filename
-                    final_path = new_path
-                    while os.path.exists(final_path) and final_path != old_path:
-                        name_without_ext = os.path.splitext(new_filename)[0]
-                        final_filename = f"{name_without_ext}_{counter}{file_extension}"
-                        final_path = os.path.join(self.directory, final_filename)
-                        counter += 1
-                    
-                    if final_path != old_path:
-                        os.rename(old_path, final_path)
-                        print(f"重命名: {filename} -> {final_filename}")
-                        renamed_count += 1
+                # 获取图片的EXIF信息
+                image = Image.open(old_path)
+                exifdata = image.getexif()
+                
+                if exifdata is not None:
+                    # 查找拍摄日期
+                    for tag_id in exifdata:
+                        tag = TAGS.get(tag_id, tag_id)
+                        if tag == "DateTime":
+                            date_taken = exifdata.get(tag_id)
+                            if date_taken:
+                                # 解析日期并格式化为文件名
+                                dt = datetime.strptime(date_taken, "%Y:%m:%d %H:%M:%S")
+                                new_filename = dt.strftime("%Y%m%d_%H%M%S") + os.path.splitext(filename)[1].lower()
+                                new_path = os.path.join(self.directory, new_filename)
+                                
+                                # 如果新文件名已存在，则添加序号
+                                counter = 1
+                                original_new_filename = new_filename
+                                while os.path.exists(new_path):
+                                    name, ext = os.path.splitext(original_new_filename)
+                                    new_filename = f"{name}_{counter}{ext}"
+                                    new_path = os.path.join(self.directory, new_filename)
+                                    counter += 1
+                                    
+                                os.rename(old_path, new_path)
+                                print(f"根据日期重命名: {filename} -> {new_filename}")
+                                renamed_count += 1
+                                break
+                    else:
+                        print(f"跳过 {filename}，未找到拍摄日期信息")
                 else:
-                    print(f"无法获取 {filename} 的拍摄日期，跳过")
+                    print(f"跳过 {filename}，无EXIF信息")
+                    
             except Exception as e:
                 print(f"处理 {filename} 时出错: {e}")
+                continue
                 
         return renamed_count
-
-    def get_capture_date(self, image_path):
-        """
-        从图片EXIF数据中获取拍摄日期
-        
-        Args:
-            image_path: 图片文件路径
-            
-        Returns:
-            str: 格式化的日期字符串，如果无法获取则返回None
-        """
-        try:
-            image = Image.open(image_path)
-            exifdata = image.getexif()
-            
-            if exifdata is not None:
-                for tag_id in exifdata:
-                    tag = TAGS.get(tag_id, tag_id)
-                    if tag == "DateTimeOriginal" or tag == "DateTime":
-                        date_str = str(exifdata[tag_id])
-                        # 转换为更友好的格式 YYYYMMDD_HHMMSS
-                        dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
-                        return dt.strftime("%Y%m%d_%H%M%S")
-            
-            # 如果EXIF中没有日期信息，使用文件修改时间
-            mtime = os.path.getmtime(image_path)
-            dt = datetime.fromtimestamp(mtime)
-            return dt.strftime("%Y%m%d_%H%M%S")
-        except Exception:
-            return None
 
     def compress_images(self, quality=85, max_width=1920, max_height=1080, output_dir=None):
         """
         批量压缩图片
         
         Args:
-            quality: JPEG压缩质量 (1-100)
+            quality: 压缩质量 (1-100)
             max_width: 最大宽度
             max_height: 最大高度
             output_dir: 输出目录，如果为None则覆盖原文件
@@ -135,104 +116,69 @@ class ImageProcessor:
             os.makedirs(output_dir)
 
         for filename in image_files:
-            try:
-                old_path = os.path.join(self.directory, filename)
-                file_extension = os.path.splitext(filename)[1].lower()
-                
-                # 获取原始文件大小
-                old_size = os.path.getsize(old_path)
-                
-                # 确定输出路径
-                if output_dir:
-                    new_path = os.path.join(output_dir, filename)
-                else:
-                    new_path = old_path
+            old_path = os.path.join(self.directory, filename)
+            file_extension = os.path.splitext(filename)[1].lower()
+            
+            # 确定输出路径
+            if output_dir:
+                new_path = os.path.join(output_dir, filename)
+            else:
+                new_path = old_path
 
-                # 打开并处理图片
-                with Image.open(old_path) as img:
-                    # 获取原始尺寸
-                    original_width, original_height = img.size
-                    
+            try:
+                # 打开图片
+                with Image.open(old_path) as image:
+                    # 转换RGBA和P模式的图片以支持JPEG格式
+                    if image.mode in ('RGBA', 'P') and file_extension in ('.jpg', '.jpeg'):
+                        # 创建白色背景
+                        background = Image.new('RGB', image.size, (255, 255, 255))
+                        if image.mode == 'P':
+                            # 如果是调色板模式，先转换为RGBA
+                            image = image.convert('RGBA')
+                        background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                        image = background
+
                     # 计算新尺寸以保持宽高比
-                    if original_width > max_width or original_height > max_height:
-                        # 如果图片尺寸超过指定的最大尺寸，则进行缩放
-                        img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
+                    image.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
                     
-                    # 对于所有JPEG文件，强制重新压缩以确保文件大小减小
-                    if file_extension in ['.jpg', '.jpeg']:
-                        # 转换模式确保兼容性
-                        if img.mode in ('RGBA', 'LA', 'P'):
-                            # 如果有透明度，转换为RGB（会丢失透明度信息）
-                            img = img.convert('RGB')
-                        
-                        # 保存压缩后的图片
-                        img.save(new_path, 'JPEG', quality=quality, optimize=True)
-                        
-                    elif file_extension == '.png':
-                        # PNG格式处理 - 转换为JPEG以实现更好的压缩效果
-                        # 保存为PNG格式并尝试优化
-                        if img.mode == 'P':
-                            img = img.convert('RGBA')
-                        
-                        # 如果用户希望获得更小的文件大小，将PNG转换为JPEG
-                        if quality < 100:  # 只有在指定压缩质量时才转换格式
-                            # 处理透明背景 - 使用白色背景替换
-                            if img.mode == 'RGBA':
-                                # 创建白色背景
-                                background = Image.new('RGB', img.size, (255, 255, 255))
-                                # 粘贴图像并使用alpha通道作为掩码
-                                background.paste(img, mask=img.split()[-1])
-                                img = background
-                            
-                            # 更改文件扩展名
-                            new_filename = filename.replace('.png', '.jpg')
-                            if output_dir:
-                                new_path = os.path.join(output_dir, new_filename)
-                            else:
-                                new_path = os.path.join(os.path.dirname(new_path), new_filename)
-                            
-                            img.save(new_path, 'JPEG', quality=quality, optimize=True)
-                        else:
-                            # 保持PNG格式但进行优化
-                            img.save(new_path, 'PNG', optimize=True)
+                    # 保存压缩后的图片
+                    if file_extension in ('.jpg', '.jpeg'):
+                        image.save(new_path, 'JPEG', quality=quality, optimize=True)
+                    elif file_extension == '.webp':
+                        image.save(new_path, 'WebP', quality=quality, method=6)
                     else:
-                        # 其他格式统一转换为JPEG以获得更好的压缩效果
-                        if img.mode in ('RGBA', 'LA', 'P'):
-                            img = img.convert('RGB')
-                        img.save(new_path, 'JPEG', quality=quality, optimize=True)
-                
-                # 获取新文件大小并计算压缩比
-                new_size = os.path.getsize(new_path)
-                ratio = (old_size - new_size) / old_size * 100 if old_size > 0 else 0
-                
-                # 显示压缩结果
-                if old_path != new_path:
-                    print(f"转换: {filename} -> {os.path.basename(new_path)} ({old_size} -> {new_size} 字节, 减少 {ratio:.1f}%)")
-                else:
-                    print(f"压缩: {filename} ({old_size} -> {new_size} 字节, 减少 {ratio:.1f}%)")
-                compressed_count += 1
+                        # 对于PNG等其他格式，使用默认设置
+                        image.save(new_path, optimize=True)
                     
+                print(f"压缩: {filename}")
+                compressed_count += 1
+                
             except Exception as e:
                 print(f"压缩 {filename} 时出错: {e}")
-        
+                continue
+                
         return compressed_count
 
 
 def main():
-    parser = argparse.ArgumentParser(description='批量重命名和压缩图片工具')
+    parser = argparse.ArgumentParser(description='图片批量处理工具')
     parser.add_argument('directory', help='图片目录路径')
-    parser.add_argument('--rename', help='重命名模式，例如 "image_"')
-    parser.add_argument('--start-number', type=int, default=1, help='重命名起始编号')
+    parser.add_argument('--rename', action='store_true', help='启用重命名功能')
+    parser.add_argument('--pattern', default='image_', help='重命名模式')
+    parser.add_argument('--start-number', type=int, default=1, help='起始编号')
     parser.add_argument('--rename-by-date', action='store_true', help='根据拍摄日期重命名')
-    parser.add_argument('--compress', action='store_true', help='压缩图片')
-    parser.add_argument('--quality', type=int, default=85, help='JPEG压缩质量 (1-100)')
+    parser.add_argument('--compress', action='store_true', help='启用压缩功能')
+    parser.add_argument('--quality', type=int, default=85, help='压缩质量 (1-100)')
     parser.add_argument('--max-width', type=int, default=1920, help='最大宽度')
     parser.add_argument('--max-height', type=int, default=1080, help='最大高度')
-    parser.add_argument('--output-dir', help='压缩图片输出目录')
+    parser.add_argument('--output-dir', help='输出目录')
 
     args = parser.parse_args()
 
-    # 检查目录是否存在
+    if not args.rename and not args.compress:
+        print("请至少选择一个操作（重命名或压缩）")
+        return
+
     if not os.path.isdir(args.directory):
         print(f"错误: 目录 '{args.directory}' 不存在")
         return
@@ -241,20 +187,21 @@ def main():
 
     # 执行重命名操作
     if args.rename:
-        count = processor.rename_images(args.rename, args.start_number)
-        print(f"成功重命名 {count} 个文件")
-
-    if args.rename_by_date:
-        count = processor.rename_images_by_date()
-        print(f"根据日期成功重命名 {count} 个文件")
+        if args.rename_by_date:
+            count = processor.rename_images_by_date()
+            print(f"根据日期成功重命名 {count} 个文件")
+        else:
+            count = processor.rename_images(args.pattern, args.start_number)
+            print(f"成功重命名 {count} 个文件")
 
     # 执行压缩操作
     if args.compress:
+        output_dir = args.output_dir if args.output_dir else None
         count = processor.compress_images(
             quality=args.quality,
             max_width=args.max_width,
             max_height=args.max_height,
-            output_dir=args.output_dir
+            output_dir=output_dir
         )
         print(f"成功压缩 {count} 个文件")
 

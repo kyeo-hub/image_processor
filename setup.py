@@ -32,6 +32,7 @@ setup(
     entry_points={
         "console_scripts": [
             "image-processor=image_processor:main",
+            "image-processor-gui=image_processor_gui:main",
         ],
     },
     package_data={

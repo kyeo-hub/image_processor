@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
+import sys
 from image_processor import ImageProcessor
 
 
@@ -194,10 +195,16 @@ class ImageProcessorGUI:
 
 
 def main():
+    """启动图像批量处理工具"""
     root = tk.Tk()
+    root.iconbitmap(default='icon.ico')  # 添加窗口图标
     app = ImageProcessorGUI(root)
     root.mainloop()
 
 
 if __name__ == "__main__":
+    """
+    程序入口点
+    当脚本直接运行时，执行main()函数
+    """
     main()
