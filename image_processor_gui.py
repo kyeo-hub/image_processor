@@ -42,12 +42,15 @@ class ImageProcessorGUI:
         
         ttk.Checkbutton(rename_frame, text="启用重命名", variable=self.rename_enabled).grid(row=0, column=0, sticky=tk.W)
         ttk.Label(rename_frame, text="命名模式:").grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
-        ttk.Entry(rename_frame, textvariable=self.rename_pattern, state=tk.DISABLED).grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        self.rename_pattern_entry = ttk.Entry(rename_frame, textvariable=self.rename_pattern, state=tk.DISABLED)
+        self.rename_pattern_entry.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         
         ttk.Label(rename_frame, text="起始编号:").grid(row=3, column=0, sticky=tk.W)
-        ttk.Entry(rename_frame, textvariable=self.start_number, state=tk.DISABLED, width=10).grid(row=4, column=0, sticky=tk.W, pady=(0, 5))
+        self.start_number_entry = ttk.Entry(rename_frame, textvariable=self.start_number, state=tk.DISABLED, width=10)
+        self.start_number_entry.grid(row=4, column=0, sticky=tk.W, pady=(0, 5))
         
-        ttk.Checkbutton(rename_frame, text="根据拍摄日期重命名", variable=self.rename_by_date, state=tk.DISABLED).grid(row=5, column=0, sticky=tk.W)
+        self.rename_by_date_checkbutton = ttk.Checkbutton(rename_frame, text="根据拍摄日期重命名", variable=self.rename_by_date, state=tk.DISABLED)
+        self.rename_by_date_checkbutton.grid(row=5, column=0, sticky=tk.W)
         
         # 压缩选项
         compress_frame = ttk.LabelFrame(main_frame, text="压缩选项", padding="10")
@@ -56,17 +59,22 @@ class ImageProcessorGUI:
         ttk.Checkbutton(compress_frame, text="启用压缩", variable=self.compress_enabled).grid(row=0, column=0, sticky=tk.W)
         
         ttk.Label(compress_frame, text="质量 (1-100):").grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
-        ttk.Entry(compress_frame, textvariable=self.quality, state=tk.DISABLED, width=10).grid(row=2, column=0, sticky=tk.W, pady=(0, 5))
+        self.quality_entry = ttk.Entry(compress_frame, textvariable=self.quality, state=tk.DISABLED, width=10)
+        self.quality_entry.grid(row=2, column=0, sticky=tk.W, pady=(0, 5))
         
         ttk.Label(compress_frame, text="最大宽度:").grid(row=3, column=0, sticky=tk.W)
-        ttk.Entry(compress_frame, textvariable=self.max_width, state=tk.DISABLED, width=10).grid(row=4, column=0, sticky=tk.W, pady=(0, 5))
+        self.max_width_entry = ttk.Entry(compress_frame, textvariable=self.max_width, state=tk.DISABLED, width=10)
+        self.max_width_entry.grid(row=4, column=0, sticky=tk.W, pady=(0, 5))
         
         ttk.Label(compress_frame, text="最大高度:").grid(row=5, column=0, sticky=tk.W)
-        ttk.Entry(compress_frame, textvariable=self.max_height, state=tk.DISABLED, width=10).grid(row=6, column=0, sticky=tk.W, pady=(0, 5))
+        self.max_height_entry = ttk.Entry(compress_frame, textvariable=self.max_height, state=tk.DISABLED, width=10)
+        self.max_height_entry.grid(row=6, column=0, sticky=tk.W, pady=(0, 5))
         
         ttk.Label(compress_frame, text="输出目录:").grid(row=7, column=0, sticky=tk.W, pady=(5, 0))
-        ttk.Entry(compress_frame, textvariable=self.output_dir, state=tk.DISABLED).grid(row=8, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
-        ttk.Button(compress_frame, text="浏览", command=self.browse_output_directory, state=tk.DISABLED).grid(row=9, column=0, sticky=tk.W)
+        self.output_dir_entry = ttk.Entry(compress_frame, textvariable=self.output_dir, state=tk.DISABLED)
+        self.output_dir_entry.grid(row=8, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        self.browse_output_button = ttk.Button(compress_frame, text="浏览", command=self.browse_output_directory, state=tk.DISABLED)
+        self.browse_output_button.grid(row=9, column=0, sticky=tk.W)
         
         # 控制按钮
         button_frame = ttk.Frame(main_frame)
@@ -113,15 +121,29 @@ class ImageProcessorGUI:
             self.output_dir.set(directory)
             
     def toggle_rename_options(self, *args):
-        state = 'normal' if self.rename_enabled.get() else 'disabled'
-        self.rename_pattern.set("image_" if not self.rename_pattern.get() else self.rename_pattern.get())
-        # 注意：在实际的tkinter中，需要通过配置每个控件的状态来实现
-        # 这里简化处理，实际应用中需要逐个设置控件状态
+        if self.rename_enabled.get():
+            self.rename_pattern_entry.config(state=tk.NORMAL)
+            self.start_number_entry.config(state=tk.NORMAL)
+            self.rename_by_date_checkbutton.config(state=tk.NORMAL)
+        else:
+            self.rename_pattern_entry.config(state=tk.DISABLED)
+            self.start_number_entry.config(state=tk.DISABLED)
+            self.rename_by_date_checkbutton.config(state=tk.DISABLED)
         
     def toggle_compress_options(self, *args):
-        state = 'normal' if self.compress_enabled.get() else 'disabled'
-        # 同上，简化处理
-        
+        if self.compress_enabled.get():
+            self.quality_entry.config(state=tk.NORMAL)
+            self.max_width_entry.config(state=tk.NORMAL)
+            self.max_height_entry.config(state=tk.NORMAL)
+            self.output_dir_entry.config(state=tk.NORMAL)
+            self.browse_output_button.config(state=tk.NORMAL)
+        else:
+            self.quality_entry.config(state=tk.DISABLED)
+            self.max_width_entry.config(state=tk.DISABLED)
+            self.max_height_entry.config(state=tk.DISABLED)
+            self.output_dir_entry.config(state=tk.DISABLED)
+            self.browse_output_button.config(state=tk.DISABLED)
+            
     def log(self, message):
         self.log_text.config(state=tk.NORMAL)
         self.log_text.insert(tk.END, message + "\n")
